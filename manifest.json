@@ -1,0 +1,45 @@
+{
+    "manifest_version": 3,
+    "name": "Ar condicionado - Dufrio",
+    "version": "1.2",
+    "description": "Escolha o tipo, BTUs e ciclo e vá direto para a lista de ar-condicionados da Dufrio, com acessos rápidos ao carrinho e às páginas de produtos.",
+    "permissions": [
+        "activeTab",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://www.dufrio.com.br/ar-condicionado*",
+        "https://www.dufrio.com.br/checkout/cart/",
+        "https://opensheet.elk.sh/*"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Ar condicionado - Dufrio"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.dufrio.com.br/ar-condicionado*"
+            ],
+            "css": [
+                "content.css"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://www.dufrio.com.br/checkout/cart/"
+            ],
+            "css": [
+                "cart.css"
+            ],
+            "js": [
+                "cart.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+}

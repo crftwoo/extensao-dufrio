@@ -187,7 +187,6 @@
         let maxBtu = -Infinity;
         let hasQuenteFrio = false;
         let hasSoFrio = false;
-        let allInverter = true;
         let typesFound = new Set();
 
         productsList.forEach(p => {
@@ -208,11 +207,6 @@
                 hasSoFrio = true;
             }
 
-            // Verifica se todos são Inverter
-            if (!titleStr.includes('inverter')) {
-                allInverter = false;
-            }
-
             // Identifica o Tipo
             if (titleStr.includes('piso') && titleStr.includes('teto')) {
                 typesFound.add('Piso Teto');
@@ -225,45 +219,65 @@
             } else if (titleStr.includes('multi')) {
                 typesFound.add('Multi Split');
             } else if (titleStr.includes('split') || titleStr.includes('hiwall') || titleStr.includes('hi-wall') || titleStr.includes('hi wall')) {
-                typesFound.add('Split');
+                typesFound.add('Hiwall');
             }
         });
 
         let btuString = "";
         if (minBtu !== Infinity && maxBtu !== -Infinity) {
             if (minBtu === maxBtu) {
-                btuString = `${minBtu} BTUs`;
+                const formatInt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                btuString = `${formatInt(minBtu)} Btus`;
             } else {
-                btuString = `${minBtu} a ${maxBtu} BTUs`;
+                const formatInt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                btuString = `${formatInt(minBtu)} a ${formatInt(maxBtu)} Btus`;
             }
         }
 
         let cicloString = "";
         let titleEmoji = "";
-        if (hasQuenteFrio && !hasSoFrio) {
+
+        // Regra do Ciclo e Emoji para o arquivo resumido inteiro
+        if (hasQuenteFrio && hasSoFrio) {
+            // Se tiver ambos, não coloca emoji nem texto de ciclo
+            cicloString = "";
+            titleEmoji = "";
+        } else if (hasQuenteFrio) {
             cicloString = "Quente/Frio";
             titleEmoji = "🔥❄️ ";
-        } else if (hasSoFrio && !hasQuenteFrio) {
-            cicloString = "Frio";
+        } else if (hasSoFrio) {
+            cicloString = "Só Frio";
             titleEmoji = "❄️ ";
         }
 
         let parts = [];
-        if (typesFound.size === 1) {
-            parts.push(Array.from(typesFound)[0]);
-        } else {
+        const orderedTypes = ['Hiwall', 'Piso Teto', 'Cassete'];
+
+        // Adiciona os tipos na ordem estrita solicitada, depois qualquer outro remanescente
+        orderedTypes.forEach(t => {
+            if (typesFound.has(t)) {
+                parts.push(t);
+                typesFound.delete(t);
+            }
+        });
+        typesFound.forEach(t => parts.push(t));
+
+        if (parts.length === 0) {
             parts.push("Ar Condicionado");
         }
 
-        if (allInverter) parts.push("Inverter");
-        if (btuString) parts.push(btuString);
-        if (cicloString) parts.push(cicloString);
+        // Em vez de "Multiplos tipos", a regra pede para concatenar (ex: Hiwall, Piso Teto, Cassete)
+        let typeString = parts.length > 1 ? parts.join(", ") : parts[0];
 
-        return `${titleEmoji} ${parts.join(" · ")}`;
+        const finalParts = [typeString];
+        if (btuString) finalParts.push(btuString);
+        if (cicloString) finalParts.push(cicloString);
+
+        return `${titleEmoji}${finalParts.join(" · ")}`.trim();
     }
 
     function formatProductText(title, spot, install) {
-        let emojiCycle = "❄️";
+        let emojiCycle = "❄️"; // Default Só Frio
         const titleLower = title.toLowerCase();
         if (titleLower.includes('quente/frio') || titleLower.includes('quente e frio') || titleLower.includes('quente/ frio') || titleLower.includes('quente / frio') || titleLower.includes('quente frio') || titleLower.includes('q/f')) {
             emojiCycle = "🔥❄️";

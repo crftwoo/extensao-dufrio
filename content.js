@@ -397,9 +397,13 @@
     let currentListTitle = null;
 
     function init() {
-        chrome.storage.local.get(['lastSearchTitle'], (result) => {
-            if (result.lastSearchTitle) {
+        chrome.storage.local.get(['lastSearchTitle', 'lastSearchUrl'], (result) => {
+            // Só usa o título do popup se a página atual for EXATAMENTE a mesma que o popup mandou abrir
+            // Caso contrário (ex: o usuário navegou na loja manualmente para outra aba), ignoramos e usamos a leitura dinâmica.
+            if (result.lastSearchTitle && result.lastSearchUrl && window.location.href.includes(result.lastSearchUrl)) {
                 currentListTitle = result.lastSearchTitle;
+            } else {
+                currentListTitle = null; // Zera para forçar o generateSmartTitle
             }
 
             const contentDiv = createPanel();

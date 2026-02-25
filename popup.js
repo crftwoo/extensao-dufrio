@@ -333,7 +333,10 @@ async function initPopup() {
                     emojiCycle = "🔥❄️";
                 }
                 const savedTitle = `${emojiCycle} ${selectedTipo} · ${btusLabel} · ${selectedCiclo}`;
-                await chrome.storage.local.set({ lastSearchTitle: savedTitle });
+                await chrome.storage.local.set({
+                    lastSearchTitle: savedTitle,
+                    lastSearchUrl: link
+                });
 
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 if (tab && tab.id) {

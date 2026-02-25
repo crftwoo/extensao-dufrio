@@ -252,7 +252,14 @@ async function initPopup() {
                 return;
             }
             const btusLabel = formatBtusLabel(selectedBtus);
-            summaryDiv.textContent = `${selectedTipo} · ${btusLabel} · ${selectedCiclo}`;
+            
+            let emojiCycle = "❄️";
+            const cicloLower = selectedCiclo.toLowerCase();
+            if (cicloLower.includes('quente/frio') || cicloLower.includes('quente e frio') || cicloLower.includes('quente/ frio') || cicloLower.includes('quente / frio') || cicloLower.includes('quente frio') || cicloLower.includes('q/f')) {
+                emojiCycle = "🔥❄️";
+            }
+
+            summaryDiv.textContent = `${emojiCycle} ${selectedTipo} · ${btusLabel} · ${selectedCiclo}`;
             summaryDiv.classList.remove('hidden');
         }
 

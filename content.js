@@ -248,16 +248,18 @@
             titleEmoji = "❄️ ";
         }
 
-        let parts = ["Ar Condicionado"];
+        let parts = [];
         if (typesFound.size === 1) {
             parts.push(Array.from(typesFound)[0]);
+        } else {
+            parts.push("Ar Condicionado");
         }
 
         if (allInverter) parts.push("Inverter");
         if (btuString) parts.push(btuString);
         if (cicloString) parts.push(cicloString);
 
-        return `${titleEmoji}${parts.join(" ")}`;
+        return `${titleEmoji} ${parts.join(" · ")}`;
     }
 
     function formatProductText(title, spot, install) {

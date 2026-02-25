@@ -258,10 +258,10 @@
 
             // 8. Valor do frete - busca próximo ao prazo de entrega
             if (deliverySection) {
-                const shippingPriceEl = deliverySection.querySelector('.price, .price-wrapper, [class*="price"]');
+                const shippingPriceEl = deliverySection.querySelector('.price, .price-wrapper, [class*="price"], .text-end');
                 if (shippingPriceEl) {
                     const shippingText = shippingPriceEl.innerText.trim();
-                    const shippingMatch = shippingText.match(/r\$\s*[\d.,]+/i);
+                    const shippingMatch = shippingText.replace(/\u00A0/g, ' ').match(/r\$\s*[\d.,]+/i);
                     if (shippingMatch) {
                         data.shippingCost = shippingMatch[0];
                     } else {
@@ -269,7 +269,7 @@
                     }
                 } else {
                     // Busca no texto completo da seção
-                    const shippingText = deliverySection.innerText;
+                    const shippingText = deliverySection.innerText.replace(/\u00A0/g, ' ');
                     const shippingMatch = shippingText.match(/r\$\s*[\d.,]+/g);
                     if (shippingMatch && shippingMatch.length > 0) {
                         // Pega o último valor encontrado (geralmente é o frete)
@@ -280,9 +280,33 @@
 
             // 9. Total dos produtos e Total com frete - busca na seção RESUMO
             const summarySection = document.querySelector('.summary, .cart-summary, [class*="resumo"], [class*="summary"]');
+
+            // Fallback: se não pegou o frete na seção de entrega, tenta extrair da seção de Resumo
+            if (summarySection && (!data.shippingCost || !data.shippingCost.toLowerCase().includes('r$'))) {
+                const lines = summarySection.innerText.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].toLowerCase();
+                    // Algumas vezes "Frete" fica numa linha e o valor na mesma linha
+                    if (line.includes('frete') && line.includes('r$')) {
+                        const match = lines[i].replace(/\u00A0/g, ' ').match(/r\$\s*[\d.,]+/i);
+                        if (match) {
+                            data.shippingCost = match[0].trim();
+                            break;
+                        }
+                    } else if (line.includes('frete') && i + 1 < lines.length && lines[i + 1].toLowerCase().includes('r$')) {
+                        // Ocasionalmente "Frete" está numa linha, e o valor na próxima
+                        const match = lines[i + 1].replace(/\u00A0/g, ' ').match(/r\$\s*[\d.,]+/i);
+                        if (match) {
+                            data.shippingCost = match[0].trim();
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (summarySection) {
                 const summaryText = summarySection.innerText;
-                
+
                 // Busca "Subtotal" ou "Total dos produtos" primeiro
                 const subtotalLabels = summarySection.querySelectorAll('td, .label, span, div, strong');
                 for (const label of subtotalLabels) {
@@ -296,21 +320,21 @@
                         }
                     }
                 }
-                
+
                 // Estratégia melhorada: busca o valor que vem DEPOIS do frete na seção RESUMO
                 // Procura por elementos que contenham "Total" mas não "Subtotal" ou "PIX"
                 const allRows = summarySection.querySelectorAll('tr, div[class*="row"], div[class*="item"]');
                 let foundFrete = false;
-                
+
                 for (const row of allRows) {
                     const rowText = row.innerText.toLowerCase();
-                    
+
                     // Marca quando encontra frete
                     if (rowText.includes('frete') && rowText.includes('r$')) {
                         foundFrete = true;
                         continue;
                     }
-                    
+
                     // Se já encontrou frete, procura o próximo "Total" que não seja subtotal
                     if (foundFrete && rowText.includes('total') && !rowText.includes('subtotal') && !rowText.includes('pix')) {
                         const priceMatch = row.innerText.match(/r\$\s*[\d.,]+/i);
@@ -320,16 +344,16 @@
                         }
                     }
                 }
-                
+
                 // Fallback: busca todos os elementos procurando pelo último "Total" que não seja subtotal
                 if (!data.totalWithShipping) {
                     const allElements = Array.from(summarySection.querySelectorAll('*'));
                     let lastTotal = null;
-                    
+
                     for (const el of allElements) {
                         const text = el.innerText.toLowerCase().trim();
-                        if (text.includes('total') && 
-                            !text.includes('subtotal') && 
+                        if (text.includes('total') &&
+                            !text.includes('subtotal') &&
                             !text.includes('produtos') &&
                             !text.includes('pix') &&
                             text.includes('r$')) {
@@ -339,20 +363,20 @@
                             }
                         }
                     }
-                    
+
                     if (lastTotal) {
                         data.totalWithShipping = lastTotal;
                     }
                 }
-                
+
                 // Último fallback: busca no texto completo
                 if (!data.totalWithShipping) {
                     const lines = summaryText.split('\n');
                     for (let i = lines.length - 1; i >= 0; i--) {
                         const line = lines[i];
                         const lowerLine = line.toLowerCase();
-                        if (lowerLine.includes('total') && 
-                            !lowerLine.includes('subtotal') && 
+                        if (lowerLine.includes('total') &&
+                            !lowerLine.includes('subtotal') &&
                             !lowerLine.includes('produtos') &&
                             !lowerLine.includes('pix')) {
                             const match = line.match(/r\$\s*[\d.,]+/i);
@@ -502,12 +526,11 @@
             if (data.cep) {
                 text += `🚚 Frete para o CEP: ${data.cep}\n`;
             }
+
+            text += `⏰ Prazo de entrega: 8 dias úteis\n`;
+
             if (data.shippingCost) {
-                text += `💵 Valor: ${data.shippingCost}\n`;
-            }
-            if (data.deliveryTime) {
-                const deliveryDays = extractDeliveryDays(data.deliveryTime);
-                text += `⏰ Prazo de entrega: ${deliveryDays}\n`;
+                text += `💸 Valor do frete: ${data.shippingCost}\n`;
             }
             text += `\n`;
         }
@@ -528,51 +551,51 @@
         if (data.pixPrice) {
             // Remove "no PIX" se estiver no texto e normaliza
             let pixValue = data.pixPrice.replace(/\s*no\s*pix/gi, '').trim();
-    async function copyImageToClipboard(imageUrl) {
-        try {
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-            
-            const imageBitmap = await createImageBitmap(blob);
-            const canvas = document.createElement('canvas');
-            canvas.width = imageBitmap.width;
-            canvas.height = imageBitmap.height;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(imageBitmap, 0, 0);
-            
-            canvas.toBlob(async (blob) => {
-                if (!blob) throw new Error("Falha ao gerar blob");
-                
-                const item = new ClipboardItem({ "image/png": blob });
-                await navigator.clipboard.write([item]);
-                
-                const btn = document.getElementById('dufrio-cart-copy-image-btn');
-                const originalText = btn.innerText;
-                btn.innerText = '✅ Imagem Copiada!';
-                btn.style.backgroundColor = '#28a745';
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.backgroundColor = '#0056b3';
-                }, 2000);
-            }, "image/png");
-        } catch (error) {
-            console.error('Erro ao copiar imagem:', error);
-            // Fallback: copia URL
-            navigator.clipboard.writeText(imageUrl).then(() => {
-                const btn = document.getElementById('dufrio-cart-copy-image-btn');
-                const originalText = btn.innerText;
-                btn.innerText = '✅ URL Copiada!';
-                btn.style.backgroundColor = '#ffc107';
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.backgroundColor = '#0056b3';
-                }, 2000);
-            });
-        }
-    }
+            async function copyImageToClipboard(imageUrl) {
+                try {
+                    const response = await fetch(imageUrl);
+                    const blob = await response.blob();
+
+                    const imageBitmap = await createImageBitmap(blob);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = imageBitmap.width;
+                    canvas.height = imageBitmap.height;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(imageBitmap, 0, 0);
+
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) throw new Error("Falha ao gerar blob");
+
+                        const item = new ClipboardItem({ "image/png": blob });
+                        await navigator.clipboard.write([item]);
+
+                        const btn = document.getElementById('dufrio-cart-copy-image-btn');
+                        const originalText = btn.innerText;
+                        btn.innerText = '✅ Imagem Copiada!';
+                        btn.style.backgroundColor = '#28a745';
+                        setTimeout(() => {
+                            btn.innerText = originalText;
+                            btn.style.backgroundColor = '#0056b3';
+                        }, 2000);
+                    }, "image/png");
+                } catch (error) {
+                    console.error('Erro ao copiar imagem:', error);
+                    // Fallback: copia URL
+                    navigator.clipboard.writeText(imageUrl).then(() => {
+                        const btn = document.getElementById('dufrio-cart-copy-image-btn');
+                        const originalText = btn.innerText;
+                        btn.innerText = '✅ URL Copiada!';
+                        btn.style.backgroundColor = '#ffc107';
+                        setTimeout(() => {
+                            btn.innerText = originalText;
+                            btn.style.backgroundColor = '#0056b3';
+                        }, 2000);
+                    });
+                }
+            }
             // Garante que está no formato R$ X,XX
             const pixMatch = pixValue.match(/r\$\s*[\d.,]+/i);
             if (pixMatch) {
@@ -607,7 +630,7 @@
             } else if (!formattedText || formattedText.trim().length === 0) {
                 formattedText = '⚠️ Algumas informações podem estar faltando. Verifique se o carrinho está completo.';
             }
-            
+
             textArea.value = formattedText;
 
             // Botão copiar texto

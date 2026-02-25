@@ -20,6 +20,7 @@
         const titleSpan = document.createElement('span');
         titleSpan.id = 'dufrio-ext-main-title';
         titleSpan.innerText = 'Ar condicionado - Dufrio';
+        titleSpan.style.whiteSpace = 'pre-line';
 
         const copyListBtn = document.createElement('button');
         copyListBtn.id = 'dufrio-ext-copy-list';
@@ -27,11 +28,12 @@
         copyListBtn.onclick = () => {
             if (currentProductsList.length === 0) return;
 
-            const fullTitle = currentListTitle || generateSmartTitle(currentProductsList);
+            const fullTitle = generateSmartTitle(currentProductsList);
 
             // Monta o texto de todos os produtos separados por linha (quebrando linhas ao invés da linha contínua)
             const listText = currentProductsList.map(p => formatProductText(p.title, p.spot, p.install)).join('\n\n\n');
-            const textToCopy = `*${fullTitle}*\n\n${listText}`;
+            const titleText = fullTitle.split('\n').map(l => `*${l}*`).join('\n');
+            const textToCopy = `${titleText}\n\n${listText}`;
 
             navigator.clipboard.writeText(textToCopy).then(() => {
                 const originalText = copyListBtn.innerText;
@@ -180,100 +182,94 @@
         return products;
     }
 
+    function extractProductInfo(titleStr) {
+        const titleLower = titleStr.toLowerCase();
+
+        let btuVal = null;
+        const btuMatch = titleLower.match(/(\d{1,2}\.?\d{3})\s*btus?/);
+        if (btuMatch) {
+            btuVal = parseInt(btuMatch[1].replace('.', ''), 10);
+        }
+
+        const isQF = titleLower.includes('quente/frio') || titleLower.includes('quente e frio') || titleLower.includes('quente/ frio') || titleLower.includes('quente / frio') || titleLower.includes('quente frio') || titleLower.includes('q/f');
+        const isSF = titleLower.includes('frio') && !isQF;
+
+        let type = 'Ar Condicionado';
+        if (titleLower.includes('teto')) {
+            type = 'Piso Teto';
+        } else if (titleLower.includes('cassete')) {
+            type = 'Cassete';
+        } else if (titleLower.includes('janela')) {
+            type = 'de Janela';
+        } else if (titleLower.includes('portátil') || titleLower.includes('portatil')) {
+            type = 'Portátil';
+        } else if (titleLower.includes('multi')) {
+            type = 'Multi Split';
+        } else if (titleLower.includes('split') || titleLower.includes('hiwall') || titleLower.includes('hi-wall') || titleLower.includes('hi wall')) {
+            type = 'Hiwall';
+        }
+
+        return { btuVal, isQF, isSF, type };
+    }
+
     function generateSmartTitle(productsList) {
         if (!productsList || productsList.length === 0) return 'Ar condicionado - Dufrio';
 
-        let minBtu = Infinity;
-        let maxBtu = -Infinity;
-        let hasQuenteFrio = false;
-        let hasSoFrio = false;
-        let typesFound = new Set();
+        const typesStats = {};
 
         productsList.forEach(p => {
-            const titleStr = p.title.toLowerCase();
-
-            // Extrai BTUs (ex: 9000, 9.000, 12000)
-            const btuMatch = titleStr.match(/(\d{1,2}\.?\d{3})\s*btus?/);
-            if (btuMatch) {
-                const btuVal = parseInt(btuMatch[1].replace('.', ''), 10);
-                if (btuVal < minBtu) minBtu = btuVal;
-                if (btuVal > maxBtu) maxBtu = btuVal;
+            const info = extractProductInfo(p.title);
+            if (!typesStats[info.type]) {
+                typesStats[info.type] = { minBtu: Infinity, maxBtu: -Infinity, hasQF: false, hasSF: false };
             }
-
-            // Identifica o Ciclo
-            if (titleStr.includes('quente/frio') || titleStr.includes('quente e frio') || titleStr.includes('quente/ frio') || titleStr.includes('quente / frio') || titleStr.includes('quente frio') || titleStr.includes('q/f')) {
-                hasQuenteFrio = true;
-            } else if (titleStr.includes('frio')) {
-                hasSoFrio = true;
+            if (info.btuVal) {
+                if (info.btuVal < typesStats[info.type].minBtu) typesStats[info.type].minBtu = info.btuVal;
+                if (info.btuVal > typesStats[info.type].maxBtu) typesStats[info.type].maxBtu = info.btuVal;
             }
-
-            // Identifica o Tipo
-            if (titleStr.includes('piso') && titleStr.includes('teto')) {
-                typesFound.add('Piso Teto');
-            } else if (titleStr.includes('cassete')) {
-                typesFound.add('Cassete');
-            } else if (titleStr.includes('janela')) {
-                typesFound.add('de Janela');
-            } else if (titleStr.includes('portátil') || titleStr.includes('portatil')) {
-                typesFound.add('Portátil');
-            } else if (titleStr.includes('multi')) {
-                typesFound.add('Multi Split');
-            } else if (titleStr.includes('split') || titleStr.includes('hiwall') || titleStr.includes('hi-wall') || titleStr.includes('hi wall')) {
-                typesFound.add('Hiwall');
-            }
+            if (info.isQF) typesStats[info.type].hasQF = true;
+            if (info.isSF) typesStats[info.type].hasSF = true;
         });
 
-        let btuString = "";
-        if (minBtu !== Infinity && maxBtu !== -Infinity) {
-            if (minBtu === maxBtu) {
-                const formatInt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-                btuString = `${formatInt(minBtu)} Btus`;
-            } else {
-                const formatInt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-                btuString = `${formatInt(minBtu)} a ${formatInt(maxBtu)} Btus`;
-            }
-        }
+        const orderedTypes = ['Hiwall', 'Piso Teto', 'Cassete', 'de Janela', 'Portátil', 'Multi Split', 'Ar Condicionado'];
+        const formatInt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
 
-        let cicloString = "";
-        let titleEmoji = "";
+        let titleLines = [];
 
-        // Regra do Ciclo e Emoji para o arquivo resumido inteiro
-        if (hasQuenteFrio && hasSoFrio) {
-            // Se tiver ambos, não coloca emoji nem texto de ciclo
-            cicloString = "";
-            titleEmoji = "";
-        } else if (hasQuenteFrio) {
-            cicloString = "Quente/Frio";
-            titleEmoji = "🔥❄️ ";
-        } else if (hasSoFrio) {
-            cicloString = "Só Frio";
-            titleEmoji = "❄️ ";
-        }
-
-        let parts = [];
-        const orderedTypes = ['Hiwall', 'Piso Teto', 'Cassete'];
-
-        // Adiciona os tipos na ordem estrita solicitada, depois qualquer outro remanescente
         orderedTypes.forEach(t => {
-            if (typesFound.has(t)) {
-                parts.push(t);
-                typesFound.delete(t);
+            if (typesStats[t]) {
+                const stats = typesStats[t];
+                let btuString = "";
+                if (stats.minBtu !== Infinity && stats.maxBtu !== -Infinity) {
+                    if (stats.minBtu === stats.maxBtu) {
+                        btuString = `${formatInt(stats.minBtu)} Btus`;
+                    } else {
+                        btuString = `${formatInt(stats.minBtu)} a ${formatInt(stats.maxBtu)} Btus`;
+                    }
+                }
+
+                let cicloString = "";
+                let emoji = "";
+
+                if (stats.hasQF && stats.hasSF) {
+                    cicloString = ""; // Sem emoji e sem ciclo se houver os dois na mesma matriz de tipo
+                    emoji = "";
+                } else if (stats.hasQF) {
+                    cicloString = "Quente/Frio";
+                    emoji = "🔥❄️ ";
+                } else if (stats.hasSF) {
+                    cicloString = "Só Frio";
+                    emoji = "❄️ ";
+                }
+
+                const parts = [t];
+                if (btuString) parts.push(btuString);
+                if (cicloString) parts.push(cicloString);
+
+                titleLines.push(`${emoji}${parts.join(' · ')}`.trim());
             }
         });
-        typesFound.forEach(t => parts.push(t));
 
-        if (parts.length === 0) {
-            parts.push("Ar Condicionado");
-        }
-
-        // Em vez de "Multiplos tipos", a regra pede para concatenar (ex: Hiwall, Piso Teto, Cassete)
-        let typeString = parts.length > 1 ? parts.join(", ") : parts[0];
-
-        const finalParts = [typeString];
-        if (btuString) finalParts.push(btuString);
-        if (cicloString) finalParts.push(cicloString);
-
-        return `${titleEmoji}${finalParts.join(" · ")}`.trim();
+        return titleLines.join('\n');
     }
 
     function formatProductText(title, spot, install) {
@@ -285,11 +281,24 @@
         return `${emojiCycle} ${title}\n💰 ${spot}\n💳 ${install}`;
     }
 
+    function parseSpotPrice(priceStr) {
+        if (!priceStr) return Infinity;
+        const match = priceStr.match(/R\$\s*([\d\.,]+)/);
+        if (match) {
+            let numStr = match[1].replace(/\./g, '').replace(',', '.');
+            return parseFloat(numStr) || Infinity;
+        }
+        return Infinity;
+    }
+
     function renderProducts(contentDiv, products) {
         if (products.length === 0) {
             contentDiv.innerHTML = '<p style="text-align:center;color:#666;">Nenhum ar condicionado encontrado ainda. A página pode estar carregando...</p>';
             return;
         }
+
+        // Ordena os produtos do menor para o maior preço à vista
+        products.sort((a, b) => parseSpotPrice(a.spot) - parseSpotPrice(b.spot));
 
         // Atualiza a lista global para o botão Copiar Lista
         currentProductsList = products;
@@ -297,7 +306,7 @@
         // Atualiza o título no cabeçalho da extensão com as métricas inteligentes
         const headerTitleSpan = document.getElementById('dufrio-ext-main-title');
         if (headerTitleSpan) {
-            headerTitleSpan.innerText = currentListTitle || generateSmartTitle(products);
+            headerTitleSpan.innerText = generateSmartTitle(products);
         }
 
         contentDiv.innerHTML = '';
@@ -394,37 +403,25 @@
         });
     }
 
-    let currentListTitle = null;
-
     function init() {
-        chrome.storage.local.get(['lastSearchTitle', 'lastSearchUrl'], (result) => {
-            // Só usa o título do popup se a página atual for EXATAMENTE a mesma que o popup mandou abrir
-            // Caso contrário (ex: o usuário navegou na loja manualmente para outra aba), ignoramos e usamos a leitura dinâmica.
-            if (result.lastSearchTitle && result.lastSearchUrl && window.location.href.includes(result.lastSearchUrl)) {
-                currentListTitle = result.lastSearchTitle;
-            } else {
-                currentListTitle = null; // Zera para forçar o generateSmartTitle
-            }
+        const contentDiv = createPanel();
 
-            const contentDiv = createPanel();
+        // Timeout longo para garantir que preços via JS carregaram (ex: "x-data='initPriceBox...'")
+        setTimeout(() => {
+            const products = extractData();
+            renderProducts(contentDiv, products);
+        }, 1500);
 
-            // Timeout longo para garantir que preços via JS carregaram (ex: "x-data='initPriceBox...'")
-            setTimeout(() => {
+        // Opcional: recarregar as buscas se rolar até o fim da página
+        let lastScrollTimeout;
+        window.addEventListener('scroll', () => {
+            clearTimeout(lastScrollTimeout);
+            lastScrollTimeout = setTimeout(() => {
                 const products = extractData();
-                renderProducts(contentDiv, products);
-            }, 1500);
-
-            // Opcional: recarregar as buscas se rolar até o fim da página
-            let lastScrollTimeout;
-            window.addEventListener('scroll', () => {
-                clearTimeout(lastScrollTimeout);
-                lastScrollTimeout = setTimeout(() => {
-                    const products = extractData();
-                    if (products.length > (document.querySelectorAll('.dufrio-ext-card').length)) { // Só atualiza se achou mais
-                        renderProducts(document.getElementById('dufrio-ext-content'), products);
-                    }
-                }, 1000);
-            });
+                if (products.length > (document.querySelectorAll('.dufrio-ext-card').length)) { // Só atualiza se achou mais
+                    renderProducts(document.getElementById('dufrio-ext-content'), products);
+                }
+            }, 1000);
         });
     }
 

@@ -325,19 +325,6 @@ async function initPopup() {
             }
 
             try {
-                // SALVA O TITULO NO STORAGE ANTES DE ABRIR A ABA PARA QUE O CONTENT.JS O LEIA
-                const btusLabel = formatBtusLabel(selectedBtus);
-                let emojiCycle = "❄️";
-                const cicloLower = selectedCiclo.toLowerCase();
-                if (cicloLower.includes('quente/frio') || cicloLower.includes('quente e frio') || cicloLower.includes('quente/ frio') || cicloLower.includes('quente / frio') || cicloLower.includes('quente frio') || cicloLower.includes('q/f')) {
-                    emojiCycle = "🔥❄️";
-                }
-                const savedTitle = `${emojiCycle} ${selectedTipo} · ${btusLabel} · ${selectedCiclo}`;
-                await chrome.storage.local.set({
-                    lastSearchTitle: savedTitle,
-                    lastSearchUrl: link
-                });
-
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 if (tab && tab.id) {
                     await chrome.tabs.update(tab.id, { url: link });

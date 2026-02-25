@@ -27,7 +27,7 @@
         copyListBtn.onclick = () => {
             if (currentProductsList.length === 0) return;
 
-            const fullTitle = generateSmartTitle(currentProductsList);
+            const fullTitle = currentListTitle || generateSmartTitle(currentProductsList);
 
             // Monta o texto de todos os produtos separados por linha (quebrando linhas ao invés da linha contínua)
             const listText = currentProductsList.map(p => formatProductText(p.title, p.spot, p.install)).join('\n\n\n');
@@ -283,7 +283,7 @@
         // Atualiza o título no cabeçalho da extensão com as métricas inteligentes
         const headerTitleSpan = document.getElementById('dufrio-ext-main-title');
         if (headerTitleSpan) {
-            headerTitleSpan.innerText = generateSmartTitle(products);
+            headerTitleSpan.innerText = currentListTitle || generateSmartTitle(products);
         }
 
         contentDiv.innerHTML = '';
@@ -380,25 +380,33 @@
         });
     }
 
+    let currentListTitle = null;
+
     function init() {
-        const contentDiv = createPanel();
+        chrome.storage.local.get(['lastSearchTitle'], (result) => {
+            if (result.lastSearchTitle) {
+                currentListTitle = result.lastSearchTitle;
+            }
 
-        // Timeout longo para garantir que preços via JS carregaram (ex: "x-data='initPriceBox...'")
-        setTimeout(() => {
-            const products = extractData();
-            renderProducts(contentDiv, products);
-        }, 1500);
+            const contentDiv = createPanel();
 
-        // Opcional: recarregar as buscas se rolar até o fim da página
-        let lastScrollTimeout;
-        window.addEventListener('scroll', () => {
-            clearTimeout(lastScrollTimeout);
-            lastScrollTimeout = setTimeout(() => {
+            // Timeout longo para garantir que preços via JS carregaram (ex: "x-data='initPriceBox...'")
+            setTimeout(() => {
                 const products = extractData();
-                if (products.length > (document.querySelectorAll('.dufrio-ext-card').length)) { // Só atualiza se achou mais
-                    renderProducts(document.getElementById('dufrio-ext-content'), products);
-                }
-            }, 1000);
+                renderProducts(contentDiv, products);
+            }, 1500);
+
+            // Opcional: recarregar as buscas se rolar até o fim da página
+            let lastScrollTimeout;
+            window.addEventListener('scroll', () => {
+                clearTimeout(lastScrollTimeout);
+                lastScrollTimeout = setTimeout(() => {
+                    const products = extractData();
+                    if (products.length > (document.querySelectorAll('.dufrio-ext-card').length)) { // Só atualiza se achou mais
+                        renderProducts(document.getElementById('dufrio-ext-content'), products);
+                    }
+                }, 1000);
+            });
         });
     }
 

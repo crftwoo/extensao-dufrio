@@ -5,7 +5,8 @@
     "description": "Escolha o tipo, BTUs e ciclo e vá direto para a lista de ar-condicionados da Dufrio, com acessos rápidos ao carrinho e às páginas de produtos.",
     "permissions": [
         "activeTab",
-        "scripting"
+        "scripting",
+        "storage"
     ],
     "host_permissions": [
         "https://www.dufrio.com.br/ar-condicionado*",
